@@ -1,0 +1,6 @@
+QUARTUS_VERSION = "25.1"
+DATE = "18:30:00  November 12, 2026"
+
+# Revisions
+
+PROJECT_REVISION = "bichinho_virtual"

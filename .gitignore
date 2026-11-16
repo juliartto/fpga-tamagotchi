@@ -1,0 +1,18 @@
+# Quartus
+db/
+incremental_db/
+output_files/
+simulation/
+*.qws
+*.rpt
+*.summary
+*.bak
+# ModelSim / Questa / GHDL
+sim/work/
+sim/transcript
+sim/*.wlf
+sim/*.vcd
+sim/*.ghw
+*.cf
+# Relatorio de erro do Quartus
+serv_req_info.txt
