@@ -61,12 +61,12 @@ sozinho: só define nomes, tipos e funções.
 | `age_t` | Idade em dias, de 0 a 99 |
 | `pet_state_t` | Os 7 estados da máquina: ovo, normal, comendo, brincando, dormindo, remédio, morto |
 | `pet_mood_t` | Humor: feliz, triste ou doente |
-| `pet_stage_t` | Fase da vida: bebê, jovem ou adulto |
+| `pet_stage_t` | Fase da vida: filhote, jovem ou adulto |
 | `sat_add`, `sat_sub` | Soma e subtração que param em 15 e em 0, sem "dar a volta" |
 | `byte_t`, `lcd_line_t` | Um caractere e uma linha de 16 caracteres do LCD |
 | `to_byte`, `to_lcd`, `digit_char` | Convertem letras, textos e números para o código que o LCD entende |
-| `SRC_GLYPH_*`, `to_glyph` | Os 7 ícones 5x8: maçã, sorriso, raio, coração, lua, bola e cruz |
-| `SRC_OVO`, `SRC_BEBE`, `SRC_JOVEM`, `SRC_ADULTO`, `SRC_LAPIDE`, `to_sprite`, `SPRITES` | Os 5 desenhos do bichinho, de 15x16 pontos |
+| `SRC_GLYPH_*`, `to_glyph` | Os 9 ícones 5x8: maçã, sorriso, raio, coração, lua, bola, cruz, matinho e brilho |
+| `SRC_OVO`, `SRC_FILHOTE`, `SRC_JOVEM`, `SRC_ADULTO`, `SRC_LAPIDE`, `to_sprite`, `SPRITES` | Os 5 desenhos, de 15x16 pontos: ovo, os três gatos e a lápide |
 | `sprite_piece` | Recorta um desenho nos 6 caracteres 5x8 que o LCD consegue mostrar |
 | `to_seg7` | Converte um número de 0 a 15 para os segmentos do display |
 
@@ -114,7 +114,7 @@ Tem três processos:
    para o contador.
 2. **Humor e fase.** Lógica combinacional. Humor: doente se a saúde está
    baixa, triste se outro atributo está baixo, feliz caso contrário. Fase:
-   bebê até 2 dias, jovem a partir de 3, adulto a partir de 6.
+   filhote até 2 dias, jovem a partir de 3, adulto a partir de 6.
 3. **Máquina de estados e atributos.** O processo principal. A cada ciclo:
    - trata os botões (só no estado normal; dormindo, só aceita acordar);
    - a cada tick, desconta os atributos conforme os períodos, avalia a saúde
@@ -162,23 +162,35 @@ Decide **o que** mostrar. A partir do estado do jogo, monta as duas linhas e
 os 8 caracteres personalizados, e entrega ao `lcd_driver`. A entrada `screen`
 (chave `SW3`) escolhe entre duas telas:
 
-- **Tela do bichinho.** O desenho da fase atual fica à esquerda, recortado em 6
-  caracteres personalizados. À direita, a linha 1 traz uma mensagem e a linha 2
-  traz a fase e a idade, ou a animação da ação em andamento (maçãs, bola, lua,
-  cruzes). O sétimo caractere personalizado é o ícone dessa ação.
-- **Tela de atributos.** Linha 1 com ícone e valor de cada atributo; linha 2
-  com a fase e a idade. Aqui os caracteres personalizados são os 4 ícones.
+- **Tela do bichinho.** Em repouso, mostra só o gato, no centro, com matinhos
+  no chão; se ele está feliz, pula e aparecem brilhos que mudam de lugar a cada
+  segundo. Durante uma ação (e também com o ovo, na evolução e na morte) o
+  desenho vai para o canto esquerdo: a linha 1 traz uma mensagem e a linha 2
+  traz a animação da ação (maçãs, bola, lua, cruzes).
+- **Tela de informações.** Linha 1 com ícone e valor de cada atributo. A linha
+  2 alterna a cada 2 segundos entre o humor (`Humor: Feliz`) e a fase com a
+  idade (`Jovem     4 dias`), porque as duas coisas não cabem juntas em 16
+  colunas.
+
+Como os 8 caracteres personalizados são usados em cada situação:
+
+| Situação | Códigos 0 a 5 | Código 6 | Código 7 |
+|---|---|---|---|
+| Bichinho no centro | pedaços do desenho | matinho | brilho |
+| Bichinho no canto (ação) | pedaços do desenho | ícone da ação | livre |
+| Informações | ícones dos atributos (0 a 3) | livre | livre |
 
 Outros detalhes:
 
 - Um contador de quadros (8 quadros de meio segundo) anima as telas. Ele
   recomeça do zero sempre que o estado muda.
-- Quando a fase muda, um segundo contador mantém a mensagem `Evoluiu!` por 4
-  segundos.
-- O bichinho só pula quando está feliz, comendo ou brincando; triste, doente
-  ou dormindo, fica parado.
-- Dois procedimentos evitam repetição: `put_number` escreve um número de 0 a
-  99, e `put_stage_age` escreve "fase dia NN".
+- Quando a fase muda, um segundo contador mantém o aviso de evolução por 4
+  segundos, nas duas telas.
+- A variável `centered` decide a posição do desenho; o mesmo trecho de código
+  desenha o gato no centro ou no canto.
+- Procedimentos evitam repetição: `put_number` escreve um número de 0 a 99,
+  `put_mood` escreve o humor e `put_stage_short` escreve a fase com a idade
+  abreviada (`Filhote  2d`).
 
 ---
 
@@ -220,7 +232,7 @@ que um tick de jogo dura 4 ciclos de clock em vez de 50 milhões.
 O roteiro do teste:
 
 1. começa como ovo, e o tempo não passa para o ovo;
-2. um botão choca o ovo, com saúde cheia e na fase de bebê;
+2. um botão choca o ovo, com saúde cheia e na fase de filhote;
 3. alimentar aumenta a saciedade e volta ao normal;
 4. brincar aumenta a alegria;
 5. dormindo ele não come, recupera energia e acorda sozinho;

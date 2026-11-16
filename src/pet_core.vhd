@@ -133,7 +133,7 @@ begin
   -----------------------------------------------------------------------------
   stage <= FASE_ADULTO when r_age >= ADULTO_AGE else
            FASE_JOVEM  when r_age >= JOVEM_AGE  else
-           FASE_BEBE;
+           FASE_FILHOTE;
 
   alert <= '1' when r_mood /= MOOD_FELIZ and st /= ST_OVO and st /= ST_MORTO
            else '0';

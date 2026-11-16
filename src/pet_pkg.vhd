@@ -32,7 +32,7 @@ package pet_pkg is
   type pet_mood_t is (MOOD_FELIZ, MOOD_TRISTE, MOOD_DOENTE);
 
   -- Fase da vida (derivada da idade): o bichinho muda de forma ao evoluir
-  type pet_stage_t is (FASE_BEBE, FASE_JOVEM, FASE_ADULTO);
+  type pet_stage_t is (FASE_FILHOTE, FASE_JOVEM, FASE_ADULTO);
 
   -- soma e subtracao que param em STAT_MAX e em 0
   function sat_add (v : stat_t; n : natural) return stat_t;
@@ -141,11 +141,33 @@ package pet_pkg is
     ".....",
     ".....");
 
+  constant SRC_GLYPH_GRASS : glyph_src_t := (  -- matinho
+    ".....",
+    ".....",
+    "..#..",
+    "..#..",
+    "#.#.#",
+    "#.#.#",
+    ".###.",
+    ".###.");
+
+  constant SRC_GLYPH_SPARK : glyph_src_t := (  -- brilho
+    ".....",
+    "..#..",
+    "..#..",
+    "##.##",
+    "..#..",
+    "..#..",
+    ".....",
+    ".....");
+
   -- valores definidos no corpo do pacote (dependem de to_glyph)
   constant STAT_GLYPHS : stat_glyphs_t;   -- icones dos atributos, ordem IDX_*
   constant GLYPH_MOON  : glyph_t;
   constant GLYPH_BALL  : glyph_t;
   constant GLYPH_CROSS : glyph_t;
+  constant GLYPH_GRASS : glyph_t;
+  constant GLYPH_SPARK : glyph_t;
 
   -----------------------------------------------------------------------------
   -- LCD: desenhos do bichinho
@@ -162,7 +184,7 @@ package pet_pkg is
   type sprite_t is array (0 to SPR_ROWS - 1) of sprite_row_t;
   type sprite_src_t is array (0 to SPR_ROWS - 1) of string(1 to SPR_COLS);
 
-  type sprite_id_t is (SPR_OVO, SPR_BEBE, SPR_JOVEM, SPR_ADULTO, SPR_LAPIDE);
+  type sprite_id_t is (SPR_OVO, SPR_FILHOTE, SPR_JOVEM, SPR_ADULTO, SPR_LAPIDE);
   type sprite_rom_t is array (sprite_id_t) of sprite_t;
 
   function to_sprite (src : sprite_src_t) return sprite_t;
@@ -190,62 +212,62 @@ package pet_pkg is
     ".....#...#.....",
     "......###......");
 
-  -- bebe: pequeno e redondo
-  constant SRC_BEBE : sprite_src_t := (
+  -- filhote: pequeno, cabeca grande e rabinho curto
+  constant SRC_FILHOTE : sprite_src_t := (
     "...............",
     "...............",
     "...............",
     "...............",
     "...............",
     "...............",
-    "...............",
-    ".....#####.....",
-    "....#.....#....",
-    "...#.#...#.#...",
-    "...#.#...#.#...",
-    "...#.......#...",
-    "...#..###..#...",
-    "....#.....#....",
-    ".....#####.....",
-    "...............");
+    "...#.....#.....",
+    "..#.#...#.#....",
+    "..#..###..#....",
+    "..#.#...#.#....",
+    "..#...#...#....",
+    "...#.....#.....",
+    "....#####...#..",
+    "...#.....#.#...",
+    "...#.#.#.#.#...",
+    "...########....");
 
-  -- jovem: maior, com orelhas e pes
+  -- jovem: sentado, com o rabo subindo ao lado
   constant SRC_JOVEM : sprite_src_t := (
     "...............",
     "...............",
-    "...............",
-    "..##.......##..",
-    "..#.#.....#.#..",
-    "..#..#####..#..",
-    "..#.........#..",
-    "..#..#...#..#..",
-    "..#..#...#..#..",
-    "..#.........#..",
-    "..#..#...#..#..",
-    "..#...###...#..",
-    "...#.......#...",
-    "....#######....",
-    "....#.....#....",
-    "...##.....##...");
+    "..#.......#....",
+    ".#.#.....#.#...",
+    ".#..#####..#...",
+    ".#.........#...",
+    ".#..#...#..#...",
+    ".#....#....#...",
+    ".#...#.#...#...",
+    "..#.......#....",
+    "...#######....#",
+    "..#.......#..#.",
+    "..#.......#.#..",
+    "..#.#...#.#.#..",
+    "..#.#...#.###..",
+    "..#########....");
 
-  -- adulto: ocupa o desenho todo, com coroa e bracos
+  -- adulto: ocupa o desenho todo, com bigodes e rabo comprido
   constant SRC_ADULTO : sprite_src_t := (
     "...............",
-    "..#..#...#..#..",
-    "..##.##.##.##..",
-    "..###########..",
-    ".#...........#.",
-    ".#..##...##..#.",
-    ".#..##...##..#.",
-    "##...........##",
-    "#.#.........#.#",
-    "#.#..#...#..#.#",
-    "..#...###...#..",
-    "..#.........#..",
-    "..#.........#..",
-    "...#########...",
-    "...##.....##...",
-    "..###.....###..");
+    ".#.......#.....",
+    ".##.....##.....",
+    ".#.#####.#....#",
+    ".#.......#...#.",
+    ".#.##.##.#...#.",
+    "##.......##..#.",
+    ".#...#...#...#.",
+    "##..#.#..##.#..",
+    "..#.....#...#..",
+    "..#######..#...",
+    ".#.......##....",
+    ".#.........#...",
+    ".#.#..#..#.#...",
+    ".#.#..#..#.#...",
+    ".###########...");
 
   constant SRC_LAPIDE : sprite_src_t := (
     "...............",
@@ -340,6 +362,8 @@ package body pet_pkg is
   constant GLYPH_MOON  : glyph_t := to_glyph(SRC_GLYPH_MOON);
   constant GLYPH_BALL  : glyph_t := to_glyph(SRC_GLYPH_BALL);
   constant GLYPH_CROSS : glyph_t := to_glyph(SRC_GLYPH_CROSS);
+  constant GLYPH_GRASS : glyph_t := to_glyph(SRC_GLYPH_GRASS);
+  constant GLYPH_SPARK : glyph_t := to_glyph(SRC_GLYPH_SPARK);
 
   function to_sprite (src : sprite_src_t) return sprite_t is
     variable spr : sprite_t;
@@ -379,7 +403,7 @@ package body pet_pkg is
 
   constant SPRITES : sprite_rom_t := (
     SPR_OVO    => to_sprite(SRC_OVO),
-    SPR_BEBE   => to_sprite(SRC_BEBE),
+    SPR_FILHOTE   => to_sprite(SRC_FILHOTE),
     SPR_JOVEM  => to_sprite(SRC_JOVEM),
     SPR_ADULTO => to_sprite(SRC_ADULTO),
     SPR_LAPIDE => to_sprite(SRC_LAPIDE));

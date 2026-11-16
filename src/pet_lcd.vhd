@@ -207,18 +207,25 @@ end architecture rtl;
 -- Ha duas telas, escolhidas pela entrada "screen":
 --
 --   screen = '0'  TELA DO BICHINHO
---     O desenho do bichinho ocupa 3 colunas x 2 linhas, a esquerda. O desenho
---     depende da fase (bebe, jovem, adulto); ovo e lapide tem desenho proprio.
---       linha 1: mensagem ("Feliz", "Com fome", "Nham nham", "Evoluiu!"...)
---       linha 2: fase e idade ("Jovem  dia 4") ou a animacao da acao
+--     Em repouso, so o bichinho, no centro, com matinhos no chao; quando
+--     esta feliz ele pula e aparecem brilhos piscando.
+--     Durante uma acao (e com o ovo, na evolucao e na morte) o desenho vai
+--     para o canto esquerdo e sobra espaco para texto e animacao:
+--       linha 1: mensagem ("Nham nham", "Dormindo", "Evoluiu!"...)
+--       linha 2: animacao da acao (macas, bola, lua, cruzes)
 --
---   screen = '1'  TELA DE ATRIBUTOS
+--   screen = '1'  TELA DE INFORMACOES
 --       linha 1: icone e valor (0 a 15) de cada atributo
---       linha 2: fase e idade
+--       linha 2: alterna a cada 2 segundos entre o humor ("Humor: Feliz")
+--                e a fase com a idade ("Jovem     4 dias")
+--
+-- O desenho do bichinho ocupa 3 colunas x 2 linhas e depende da fase (filhote,
+-- jovem, adulto); ovo e lapide tem desenho proprio.
 --
 -- Os 8 caracteres personalizados mudam conforme a tela: na do bichinho, 6 sao
--- os pedacos do desenho e 1 e o icone da acao; na de atributos, 4 sao os
--- icones. A animacao recomeca do quadro 0 sempre que o estado muda.
+-- os pedacos do desenho e os outros 2 sao a decoracao ou o icone da acao; na
+-- de informacoes, 4 sao os icones dos atributos. A animacao recomeca do
+-- quadro 0 sempre que o estado muda.
 -------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -232,7 +239,7 @@ entity pet_lcd is
   );
   port (
     clk      : in  std_logic;
-    screen   : in  std_logic;   -- '0' bichinho, '1' atributos
+    screen   : in  std_logic;   -- '0' bichinho, '1' informacoes
     state    : in  pet_state_t;
     mood     : in  pet_mood_t;
     stage    : in  pet_stage_t;
@@ -248,12 +255,20 @@ end entity pet_lcd;
 architecture rtl of pet_lcd is
   constant SPACE : byte_t := to_byte(' ');
 
-  -- Tela do bichinho: o texto comeca depois do desenho e de um espaco
+  -- Tela do bichinho, desenho no canto: o texto comeca depois do desenho
   constant TEXT_COL : positive := SPR_CHARS_W + 1;
   constant TEXT_LEN : positive := LCD_COLS - TEXT_COL;
 
-  -- codigo do caractere personalizado usado para o icone da acao
-  constant ACT_GLYPH : natural := SPR_PIECES;
+  -- Tela do bichinho, desenho no centro
+  constant CENTER_COL : natural := (LCD_COLS - SPR_CHARS_W) / 2;
+
+  -- Os dois caracteres personalizados que sobram depois do desenho
+  constant ACT_GLYPH   : natural := SPR_PIECES;      -- icone da acao
+  constant GRASS_GLYPH : natural := SPR_PIECES;      -- matinho
+  constant SPARK_GLYPH : natural := SPR_PIECES + 1;  -- brilho
+
+  constant NAME_LEN : positive := 8;   -- colunas do nome da fase
+  constant MOOD_LEN : positive := 9;   -- colunas do texto de humor
 
   -- cada quadro da animacao dura meio segundo
   constant N_FRAMES  : positive := 8;
@@ -262,7 +277,7 @@ architecture rtl of pet_lcd is
   signal anim_cnt   : natural range 0 to ANIM_CLKS - 1 := 0;
   signal frame      : natural range 0 to N_FRAMES - 1  := 0;
   signal state_prev : pet_state_t := ST_OVO;
-  signal stage_prev : pet_stage_t := FASE_BEBE;
+  signal stage_prev : pet_stage_t := FASE_FILHOTE;
   signal evolve_cnt : natural range 0 to EVOLVE_FRAMES := 0;
 
   signal glyphs : glyph_set_t := (others => GLYPH_BLANK);
@@ -275,13 +290,12 @@ architecture rtl of pet_lcd is
     return to_byte(character'val(g));
   end function;
 
-  -- nome da fase, com 7 colunas
   function stage_name (s : pet_stage_t) return lcd_text_t is
   begin
     case s is
-      when FASE_BEBE  => return to_lcd("Bebe", 7);
-      when FASE_JOVEM => return to_lcd("Jovem", 7);
-      when others     => return to_lcd("Adulto", 7);
+      when FASE_FILHOTE => return to_lcd("Filhote", NAME_LEN);
+      when FASE_JOVEM   => return to_lcd("Jovem", NAME_LEN);
+      when FASE_ADULTO  => return to_lcd("Adulto", NAME_LEN);
     end case;
   end function;
 begin
@@ -328,8 +342,8 @@ begin
         anim_cnt <= anim_cnt + 1;
       end if;
 
-      -- um novo bichinho volta a ser bebe: isso nao conta como evolucao
-      if stage /= stage_prev and stage /= FASE_BEBE then
+      -- um novo bichinho volta a ser filhote: isso nao conta como evolucao
+      if stage /= stage_prev and stage /= FASE_FILHOTE then
         evolve_cnt <= EVOLVE_FRAMES;
       elsif state = ST_OVO or state = ST_MORTO then
         evolve_cnt <= 0;
@@ -343,13 +357,15 @@ begin
   -- Telas
   -----------------------------------------------------------------------------
   process (clk)
-    variable l1, l2 : lcd_line_t;
-    variable g      : glyph_set_t;
-    variable msg    : lcd_text_t(0 to TEXT_LEN - 1);
-    variable info   : lcd_text_t(0 to TEXT_LEN - 1);
-    variable spr    : sprite_id_t;
-    variable odd    : boolean;
-    variable hop    : boolean;
+    variable l1, l2   : lcd_line_t;
+    variable g        : glyph_set_t;
+    variable msg      : lcd_text_t(0 to TEXT_LEN - 1);
+    variable info     : lcd_text_t(0 to TEXT_LEN - 1);
+    variable spr      : sprite_id_t;
+    variable spr_col  : natural range 0 to LCD_COLS - SPR_CHARS_W;
+    variable centered : boolean;
+    variable odd      : boolean;
+    variable hop      : boolean;
 
     -- escreve um numero de 0 a 99 em 2 colunas, sem zero a esquerda
     procedure put_number (
@@ -365,14 +381,36 @@ begin
       txt(pos + 1) := digit_char(n mod 10);
     end procedure;
 
-    -- escreve "fase dia NN" (12 colunas) a partir de pos
-    procedure put_stage_age (
+    -- escreve a fase e a idade de forma curta, como "Filhote  2d" (11 colunas)
+    procedure put_stage_short (
       variable txt : inout lcd_text_t;
       constant pos : in    natural) is
     begin
-      txt(pos to pos + 6)     := stage_name(stage);
-      txt(pos + 7 to pos + 9) := to_lcd("dia", 3);
-      put_number(txt, pos + 10, age);
+      txt(pos to pos + NAME_LEN - 1) := stage_name(stage);
+      put_number(txt, pos + NAME_LEN, age);
+      txt(pos + NAME_LEN + 2) := to_byte('d');
+    end procedure;
+
+    -- escreve como o bichinho esta (MOOD_LEN colunas)
+    procedure put_mood (
+      variable txt : inout lcd_text_t;
+      constant pos : in    natural) is
+      variable m : lcd_text_t(0 to MOOD_LEN - 1);
+    begin
+      if state = ST_DORMINDO then
+        m := to_lcd("Dormindo", MOOD_LEN);
+      elsif mood = MOOD_DOENTE then
+        m := to_lcd("Doente", MOOD_LEN);
+      elsif mood = MOOD_FELIZ then
+        m := to_lcd("Feliz", MOOD_LEN);
+      elsif stats(IDX_FOOD) <= LOW_LEVEL then
+        m := to_lcd("Com fome", MOOD_LEN);
+      elsif stats(IDX_ENERGY) <= LOW_LEVEL then
+        m := to_lcd("Cansado", MOOD_LEN);
+      else
+        m := to_lcd("Entediado", MOOD_LEN);
+      end if;
+      txt(pos to pos + MOOD_LEN - 1) := m;
     end procedure;
   begin
     if rising_edge(clk) then
@@ -385,15 +423,16 @@ begin
         -----------------------------------------------------------------------
         -- TELA DO BICHINHO
         -----------------------------------------------------------------------
-        msg  := (others => SPACE);
-        info := (others => SPACE);
-        hop  := false;
+        msg      := (others => SPACE);
+        info     := (others => SPACE);
+        hop      := false;
+        centered := false;
 
         -- desenho conforme a fase da vida
         case stage is
-          when FASE_BEBE   => spr := SPR_BEBE;
-          when FASE_JOVEM  => spr := SPR_JOVEM;
-          when FASE_ADULTO => spr := SPR_ADULTO;
+          when FASE_FILHOTE => spr := SPR_FILHOTE;
+          when FASE_JOVEM   => spr := SPR_JOVEM;
+          when FASE_ADULTO  => spr := SPR_ADULTO;
         end case;
 
         case state is
@@ -404,27 +443,15 @@ begin
             info := to_lcd("Aperte botao", TEXT_LEN);
 
           when ST_NORMAL =>
-            case mood is
-              when MOOD_FELIZ =>
-                hop := odd;   -- so pula quando esta feliz
-                msg := to_lcd("Feliz", TEXT_LEN);
-              when MOOD_TRISTE =>
-                if stats(IDX_FOOD) <= LOW_LEVEL then
-                  msg := to_lcd("Com fome", TEXT_LEN);
-                elsif stats(IDX_ENERGY) <= LOW_LEVEL then
-                  msg := to_lcd("Cansado", TEXT_LEN);
-                else
-                  msg := to_lcd("Entediado", TEXT_LEN);
-                end if;
-              when MOOD_DOENTE =>
-                msg := to_lcd("Doente!", TEXT_LEN);
-            end case;
-
             if evolve_cnt > 0 then
               hop := odd;
               msg := to_lcd("Evoluiu!", TEXT_LEN);
+              put_stage_short(info, 0);
+            else
+              -- em repouso: so o bichinho, no centro
+              centered := true;
+              hop      := odd and mood = MOOD_FELIZ;
             end if;
-            put_stage_age(info, 0);
 
           when ST_COMENDO =>
             hop := odd;
@@ -471,21 +498,46 @@ begin
             put_number(info, 4, age);
         end case;
 
+        if centered then
+          spr_col := CENTER_COL;
+
+          -- matinhos no chao, dos dois lados
+          g(GRASS_GLYPH) := GLYPH_GRASS;
+          l2(1)  := glyph_char(GRASS_GLYPH);
+          l2(4)  := glyph_char(GRASS_GLYPH);
+          l2(11) := glyph_char(GRASS_GLYPH);
+          l2(14) := glyph_char(GRASS_GLYPH);
+
+          -- brilhos so quando esta feliz; mudam de lugar a cada segundo
+          if mood = MOOD_FELIZ then
+            g(SPARK_GLYPH) := GLYPH_SPARK;
+            if (frame / 2) mod 2 = 0 then
+              l1(2)  := glyph_char(SPARK_GLYPH);
+              l1(12) := glyph_char(SPARK_GLYPH);
+            else
+              l1(4)  := glyph_char(SPARK_GLYPH);
+              l1(10) := glyph_char(SPARK_GLYPH);
+              l1(14) := glyph_char(SPARK_GLYPH);
+            end if;
+          end if;
+        else
+          spr_col := 0;
+          l1(TEXT_COL to LCD_COLS - 1) := msg;
+          l2(TEXT_COL to LCD_COLS - 1) := info;
+        end if;
+
         -- o desenho vira 6 caracteres personalizados (codigos 0 a 5)
         for p in 0 to SPR_PIECES - 1 loop
           g(p) := sprite_piece(SPRITES(spr), p, hop);
         end loop;
         for c in 0 to SPR_CHARS_W - 1 loop
-          l1(c) := glyph_char(c);
-          l2(c) := glyph_char(SPR_CHARS_W + c);
+          l1(spr_col + c) := glyph_char(c);
+          l2(spr_col + c) := glyph_char(SPR_CHARS_W + c);
         end loop;
-
-        l1(TEXT_COL to LCD_COLS - 1) := msg;
-        l2(TEXT_COL to LCD_COLS - 1) := info;
 
       else
         -----------------------------------------------------------------------
-        -- TELA DE ATRIBUTOS
+        -- TELA DE INFORMACOES
         -----------------------------------------------------------------------
         case state is
           when ST_OVO =>
@@ -498,13 +550,29 @@ begin
             put_number(l2, 6, age);
 
           when others =>
-            -- icone (codigos 0 a 3) e valor de cada atributo
+            -- linha 1: icone (codigos 0 a 3) e valor de cada atributo
             for i in 0 to N_STATS - 1 loop
               g(i)      := STAT_GLYPHS(i);
               l1(4 * i) := glyph_char(i);
               put_number(l1, 4 * i + 1, stats(i));
             end loop;
-            put_stage_age(l2, 0);
+
+            -- linha 2: humor e fase se alternam (metade dos quadros cada)
+            if evolve_cnt > 0 then
+              l2(0 to 7)                := to_lcd("Evoluiu:", 8);
+              l2(8 to 8 + NAME_LEN - 1) := stage_name(stage);
+            elsif frame < N_FRAMES / 2 then
+              l2(0 to 6) := to_lcd("Humor:", 7);
+              put_mood(l2, 7);
+            else
+              l2(0 to NAME_LEN - 1) := stage_name(stage);
+              put_number(l2, 9, age);
+              if age = 1 then
+                l2(11 to 15) := to_lcd(" dia", 5);
+              else
+                l2(11 to 15) := to_lcd(" dias", 5);
+              end if;
+            end if;
         end case;
       end if;
 

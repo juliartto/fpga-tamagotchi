@@ -91,7 +91,7 @@ begin
     press(btn_feed);
     check(state = ST_NORMAL, "qualquer botao deveria chocar o ovo");
     check(stats(IDX_HEALTH) = STAT_MAX, "deveria nascer com saude cheia");
-    check(stage = FASE_BEBE, "deveria nascer como bebe");
+    check(stage = FASE_FILHOTE, "deveria nascer como filhote");
 
     -- alimentar
     before := stats(IDX_FOOD);

@@ -18,14 +18,14 @@ entediado e cansado com o passar do tempo; se for negligenciado, adoece e morre.
 | `SW17` | Reset: volta ao ovo |
 | `SW0` | Pausa o tempo do jogo |
 | `SW2..SW1` | Velocidade do tempo: `00` 1x, `01` 2x, `10` 4x, `11` 8x |
-| `SW3` | Tela do LCD: para baixo, o bichinho; para cima, os atributos |
+| `SW3` | Tela do LCD: para baixo, o bichinho; para cima, as informações |
 
 Com o ovo na tela, qualquer `KEY` choca o bichinho. Depois que ele morre,
 qualquer `KEY` volta ao ovo.
 
 | Saída | O que mostra |
 |---|---|
-| LCD 16x2 | Duas telas, escolhidas por `SW3`: o bichinho desenhado, com mensagem e animações, ou os atributos (ver abaixo) |
+| LCD 16x2 | Duas telas, escolhidas por `SW3`: o bichinho desenhado, ou as informações (atributos, humor, fase e idade) |
 | `HEX7..HEX6` | Idade em "dias" (1 dia = 60 ticks de jogo) |
 | `HEX3..HEX0` | Saciedade, alegria, energia e saúde, de `0` a `F` |
 | `LEDR` | Piscam quando algum atributo está baixo |
@@ -34,35 +34,43 @@ qualquer `KEY` volta ao ovo.
 
 Telas do LCD (a chave `SW3` escolhe qual aparece):
 
-**Tela do bichinho** (`SW3` para baixo). O desenho ocupa 3 colunas por 2 linhas,
-à esquerda, e muda conforme a fase da vida:
+**Tela do bichinho** (`SW3` para baixo). Em repouso, mostra só o gatinho, no
+centro, sem texto:
 
-| Estado | Desenho | Linha 1 | Linha 2 |
-|---|---|---|---|
-| Ovo | ovo balançando | `Um ovo!` | `Aperte botao` |
-| Normal | bebê, jovem ou adulto (pula se está feliz) | `Feliz`, `Com fome`, `Cansado`, `Entediado`, `Doente!` | fase e idade: `Jovem  dia 4` |
-| Evoluiu | a forma nova, pulando | `Evoluiu!` por 4 segundos | fase e idade |
-| Comendo | pulando | `Nham nham` | três maçãs sendo comidas |
-| Brincando | pulando | `Brincando!` | bola atravessando a tela |
-| Dormindo | parado | `Dormindo` | lua e `z Z z` |
-| Remédio | parado | `Remedio` | cruzes piscando |
-| Morto | lápide | `Morreu...` | `com NN dias` |
-
-**Tela de atributos** (`SW3` para cima):
-
-| Linha 1 | Linha 2 |
+| Humor | O que aparece |
 |---|---|
-| ícone e valor (0 a 15) de saciedade, alegria, energia e saúde | fase e idade: `Adulto dia12` |
+| Feliz | o gato pulando, matinhos no chão e brilhos piscando em volta |
+| Triste ou doente | o gato parado, só com os matinhos |
+
+Durante uma ação o desenho vai para o canto esquerdo, e o resto da tela mostra
+um texto e uma animação:
+
+| Estado | Linha 1 | Linha 2 |
+|---|---|---|
+| Ovo | `Um ovo!` | `Aperte botao` |
+| Evoluiu | `Evoluiu!` por 4 segundos | fase e idade: `Jovem    3d` |
+| Comendo | `Nham nham` | três maçãs sendo comidas |
+| Brincando | `Brincando!` | bola atravessando a tela |
+| Dormindo | `Dormindo` | lua e `z Z z` |
+| Remédio | `Remedio` | cruzes piscando |
+| Morto (lápide) | `Morreu...` | `com NN dias` |
+
+**Tela de informações** (`SW3` para cima):
+
+| Linha | Conteúdo |
+|---|---|
+| 1 | ícone e valor (0 a 15) de saciedade, alegria, energia e saúde |
+| 2 | alterna a cada 2 segundos entre o humor (`Humor: Feliz`, `Humor: Com fome`...) e a fase com a idade (`Jovem     4 dias`) |
 
 ## Evolução
 
-O bichinho muda de forma conforme a idade (1 dia = 60 ticks de jogo):
+O bichinho é um gatinho, que muda de forma conforme a idade (1 dia = 60 ticks de jogo):
 
 | Fase | Idade | Forma |
 |---|---|---|
-| Bebê | 0 a 2 dias | pequeno e redondo |
-| Jovem | 3 a 5 dias | maior, com orelhas e pés |
-| Adulto | 6 dias ou mais | ocupa o desenho todo, com coroa e braços |
+| Filhote | 0 a 2 dias | gatinho pequeno, de cabeça grande e rabo curto |
+| Jovem | 3 a 5 dias | gato sentado, com o rabo subindo ao lado |
+| Adulto | 6 dias ou mais | gato grande, com bigodes e rabo comprido |
 
 As idades são os `generic` `JOVEM_AGE` e `ADULTO_AGE` de `pet_core`. Na
 velocidade 8x, o bichinho vira adulto em 45 segundos.
